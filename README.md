@@ -1,46 +1,68 @@
-# BLE Central in C with Gattlib
+# 使用 Gattlib 的 C 語言 BLE Central
 
-This folder is the C-language optional project for the BLE lab. It follows the same central-side steps as the Python basic project:
+這是 BLE 作業的 Option 1 範例：在 Linux 主機上使用 C 與 Gattlib，作為 BLE Central 連線到手機上的 GATT Server。
 
-1. Scan for nearby BLE devices.
-2. Choose the phone from the list and connect.
-3. Display the GATT services and characteristics.
-4. Enable **indications** for the selected characteristic. This asks the phone's GATT server to set its CCCD to `0x0002`.
-5. Show indication data received from the phone.
+操作流程和 Python basic 範例相近：
 
-The program uses [Gattlib](https://github.com/labapart/gattlib), a C library built on BlueZ. Run it on a Linux computer such as a Raspberry Pi; it cannot use the Mac's Bluetooth stack directly.
+1. 掃描附近的 BLE 裝置。
+2. 從清單中選擇手機並連線。
+3. 顯示手機提供的 GATT services 與 characteristics。
+4. 對指定 characteristic 啟用 indication。Gattlib 會透過 BlueZ 訂閱 indication，對應到 CCCD 的 `0x0002`。
+5. 接收手機送出的 indication，並在 Pi 終端機顯示資料。
 
-## What you need
+本程式使用 [Gattlib](https://github.com/labapart/gattlib)，它是建立在 BlueZ 上的 C 語言 BLE 函式庫。**請在 Raspberry Pi 或其他 Linux 主機上建置與執行；macOS 不提供這個程式所需的 BlueZ 環境。**
 
-- Raspberry Pi with Bluetooth LE and Raspberry Pi OS / another Linux distribution using BlueZ.
-- An Android or iPhone BLE GATT server app. The steps below use **LightBlue** on iPhone.
-- Internet access on the Pi for the one-time package and Gattlib download.
+## 環境需求與測試狀態
 
-## 1. Prepare the phone
+- Raspberry Pi 3（或其他支援 BLE 的 Linux 主機），並使用 Raspberry Pi OS 或其他 Linux 發行版。
+- BlueZ 與可用的 BLE adapter。
+- 手機端 BLE GATT Server app；以下以 iPhone 的 LightBlue 為例，也可使用 Android BLE Tool。
+- Pi 需要網路連線，供腳本安裝建置依賴及下載 Gattlib 原始碼。
 
-### iPhone with LightBlue
+建置腳本會下載執行當下 Gattlib 官方 GitHub `master` 分支的最新版本，並安裝到本專案的 `.local/`，不會安裝到系統目錄。因為 Gattlib 與 BlueZ 版本可能影響建置或連線行為，繳交報告或 demo 時，建議記錄：
 
-1. Open LightBlue and create/open the `Blank` virtual peripheral.
-2. Add or select service `1111`.
-3. Add/select characteristic `b3fcaed7-8598-419f-89f9-ebf46229fc7d` and enable **Read** and **Indicate**.
-4. Start advertising. Keep the app open and the phone unlocked during the demo.
+```bash
+uname -a
+bluetoothctl --version
+git -C gattlib-src rev-parse --short HEAD
+```
 
-For the Android BLE Tool app, start its GATT server and use a characteristic that has the **Indicate** property. Its default `FFF1` characteristic may also be used; see the alternative command below.
+**驗證範圍：**本專案已建立並推送到 GitHub；目前尚未在 Raspberry Pi 上實際建置或連接手機測試。請依下方步驟在目標 Pi 上建置，並以手機端 server log 和 Pi 終端輸出確認結果。不要將尚未完成的實機測試描述為已驗證。
 
-## 2. Build and install Gattlib, then build this program
+## 1. 設定手機
 
-Copy this whole `ESlab_hw3_option1` folder to the Pi. From a terminal on the Pi:
+### iPhone：LightBlue
+
+1. 開啟 LightBlue，建立或選擇 `Blank` 虛擬 Peripheral。
+2. 建立或選擇 service UUID `1111`。
+3. 建立或選擇 characteristic UUID `b3fcaed7-8598-419f-89f9-ebf46229fc7d`，並開啟 **Read** 和 **Indicate**。
+4. 開始廣播。Demo 期間保持 LightBlue 開啟，並讓手機維持解鎖狀態。
+
+### Android：BLE Tool
+
+啟動 GATT Server，並選擇具有 **Indicate** 屬性的 characteristic。BLE Tool 的預設 `FFF1` characteristic 可用；若 UUID 不同，執行程式時要傳入正確 UUID。
+
+## 2. 在 Raspberry Pi 上建置
+
+將整個 `ESlab_hw3_option1` 資料夾複製到 Pi，接著在 Pi 的終端機執行：
 
 ```bash
 cd ~/ESlab_hw3_option1
 bash build_on_raspberry_pi.sh
 ```
 
-The script installs Linux build dependencies, downloads the official Gattlib source into `gattlib-src/`, builds and installs Gattlib locally into `.local/`, builds Gattlib's examples, and builds this C program. It does not replace the Python basic project or install Gattlib system-wide.
+腳本會：
 
-## 3. Run the demo
+1. 安裝 Linux 建置工具和 Gattlib 所需的開發套件（會使用 `sudo apt`）。
+2. 將 Gattlib 官方原始碼下載到 `gattlib-src/`。
+3. 在本專案的 `.local/` 建置並安裝 Gattlib，同時建置 Gattlib 隨附的範例。
+4. 建置本專案的 C BLE Central，輸出至 `build/ble_indication_central`。
 
-For the iPhone LightBlue characteristic:
+建置產生的 `.local/`、`build/` 和 `gattlib-src/` 都是本機檔案，不需要提交到 GitHub。
+
+## 3. 執行 demo
+
+使用 iPhone LightBlue 時，執行：
 
 ```bash
 cd ~/ESlab_hw3_option1
@@ -48,56 +70,56 @@ export LD_LIBRARY_PATH="$PWD/.local/lib:$PWD/.local/lib/aarch64-linux-gnu:$PWD/.
 ./build/ble_indication_central --char b3fcaed7-8598-419f-89f9-ebf46229fc7d
 ```
 
-For BLE Tool's default `FFF1` characteristic:
+使用 BLE Tool 預設的 `FFF1` characteristic 時：
 
 ```bash
 ./build/ble_indication_central --char 0000fff1-0000-1000-8000-00805f9b34fb
 ```
 
-The program scans for 10 seconds, lists the devices it found, and asks you to enter the number beside your phone. Then it connects, prints the GATT table, enables indication on the chosen characteristic, and listens for 30 seconds. In LightBlue, send an **indication** (not only a notification) while it is listening. The received bytes appear in the Pi terminal.
-
-If you omit `--char`, the program uses the default FFF1 characteristic:
+不指定 `--char` 時，程式預設使用 `FFF1`：
 
 ```bash
 ./build/ble_indication_central
 ```
 
-## What proves the demo worked
+程式會掃描 10 秒並列出找到的 BLE 裝置。輸入手機旁邊的編號後，程式會連線、列出 GATT table、啟用 indication，並在接下來 30 秒等待資料。此時請在 LightBlue 選 **Indicate** 傳送資料；只送 Notification 不會觸發本範例的 indication callback。
 
-- The Pi prints `Connected.` and lists services/characteristics.
-- The Pi prints `Indications enabled (CCCD 0x0002).`
-- The LightBlue / BLE Tool server log shows the client enabling indication or a descriptor write of `02 00`.
-- After you send an indication from the phone, the Pi prints a line beginning with `<<< Indication` and its received bytes.
+## 如何確認成功
 
-Gattlib's public API provides `gattlib_indication_start()` and an indication callback. This project uses that API rather than guessing the CCCD descriptor handle. The CCCD is a two-byte little-endian value: `02 00` means indications enabled. The C example does not read the CCCD value back; use the phone app's GATT server log as the confirmation, just as the assignment permits.
+- Pi 顯示已連線並列出 services / characteristics。
+- Pi 顯示 `Indications enabled (CCCD 0x0002).`
+- 手機端 GATT Server log 顯示 indication 已啟用或 CCCD 被寫入 `02 00`。
+- 從手機送出 indication 後，Pi 顯示 `<<< Indication` 和收到的資料 bytes。
 
-## Try the upstream Gattlib examples
+CCCD 是 16-bit little-endian 值；`02 00` 代表啟用 indication。Gattlib 的公開 API 有 `gattlib_indication_start()` 和 indication callback，本範例透過這個 API 啟用，不自行猜 CCCD descriptor handle。此 C 範例不讀回 CCCD；請以手機端 server log 作為設定成功的佐證。Gattlib 與 CCCD 的行為可參考[官方專案](https://github.com/labapart/gattlib)及[官方 API header](https://github.com/labapart/gattlib/blob/master/include/gattlib.h)。
 
-The build script also builds Gattlib's own examples. To try them, set the runtime library path as above, then inspect the available executable names:
+## 試跑 Gattlib 隨附範例
+
+建置腳本也會建置 Gattlib 隨附的範例。要查看實際產生的執行檔：
 
 ```bash
 find gattlib-src/build/examples -type f -executable
 ```
 
-For example, scan for nearby devices:
+例如掃描附近裝置：
 
 ```bash
 sudo gattlib-src/build/examples/ble_scan/ble_scan
 ```
 
-The exact example paths or command-line arguments can differ between Gattlib revisions. Run an example without arguments to see its usage. Our C demo itself performs a scan, GATT discovery, and indication subscription.
+不同 Gattlib 版本的範例路徑或參數可能不同；可不帶參數執行該範例查看用法。本專案的 C 程式本身也會掃描裝置、探索 GATT，並訂閱 indication。
 
-## Troubleshooting
+## 常見問題
 
-- **No devices appear:** make sure advertising is on, keep the phone nearby, and retry. On Raspberry Pi OS, check that Bluetooth is enabled with `bluetoothctl show`.
-- **The device appears but will not connect:** phone addresses may change. Run a fresh scan; avoid reusing an old address. Also close LightBlue's connection from any other central app.
-- **The characteristic is missing:** confirm the UUID exactly matches the phone's GATT server. Use the full UUID shown by the app.
-- **No indication arrives:** the chosen characteristic must have **Indicate** enabled; while the C program is listening, send an indication from the phone. A notification is not the same as an indication.
-- **Gattlib build fails while configuring examples:** the script updates older example CMake references from PCRE1 to PCRE2 for newer Raspberry Pi OS package sets. If the error is different, save the final lines of the build output and check the Gattlib issue tracker.
+- **掃描不到手機：**確認手機正在廣播、Pi 的 Bluetooth 已啟用，並縮短手機與 Pi 的距離。可用 `bluetoothctl show` 檢查 adapter 狀態。
+- **掃描得到但連不上：**手機的 BLE 位址可能變動，重新執行程式掃描；並確認沒有另一個 Central 正連著手機。
+- **找不到 characteristic：**確認 `--char` UUID 和手機 GATT Server 顯示的 UUID 完全一致，必要時使用完整 UUID。
+- **沒有收到資料：**確認 characteristic 有開啟 **Indicate**，並在程式等待的 30 秒內從手機送出 indication，而不是 notification。
+- **找不到 BlueZ/Gattlib 或無法編譯：**確認是在 Linux Pi 上執行腳本，而不是 macOS；再檢查 Raspberry Pi OS、BlueZ 版本和錯誤訊息最後幾行。
+- **執行時找不到 `libgattlib`：**確認執行前已設定上方的 `LD_LIBRARY_PATH`，且建置腳本成功完成。
 
-## Source
+## 檔案
 
-- C central: `src/ble_indication_central.c`
-- Build/setup script: `build_on_raspberry_pi.sh`
-- Gattlib upstream: https://github.com/labapart/gattlib
-- Official API header: https://github.com/labapart/gattlib/blob/master/include/gattlib.h
+- `src/ble_indication_central.c`：C 語言 BLE Central。
+- `CMakeLists.txt`：本專案的 CMake 建置設定。
+- `build_on_raspberry_pi.sh`：在 Pi 安裝建置依賴、建置安裝 Gattlib，並建置本範例的腳本。
